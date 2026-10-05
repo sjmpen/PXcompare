@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pxcompare"
+version = "0.1.0"
+description = "Compare two PX (PC-Axis) files, or two folders of them, and explain every difference."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "pandas>=2.0",
+]
+
+[project.optional-dependencies]
+app = ["streamlit>=1.50", "altair>=5"]
+dev = ["pytest>=7"]
+
+[project.scripts]
+pxcompare = "pxcompare.cli:main"
+pxcompare-app = "pxcompare.launch:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
