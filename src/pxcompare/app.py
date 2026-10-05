@@ -166,9 +166,12 @@ def tab_data(cmp: Comparison, lang: str | None, key: str) -> None:
 
     st.subheader("Where are the differences?")
     st.caption("Differing cells per value of each variable. Hover a bar for details.")
-    breakdown = [(var, rows) for var, rows in d.breakdown(lang) if len(var.values) > 1]
+    for var, rows in d.breakdown(lang, all_values=True):
+        if var.is_time:
+            _time_chart(var.name_in(lang), rows)
+    others = [(var, rows) for var, rows in d.breakdown(lang) if not var.is_time and len(var.values) > 1]
     cols = st.columns(2)
-    for i, (var, rows) in enumerate(breakdown):
+    for i, (var, rows) in enumerate(others):
         with cols[i % 2]:
             _bar_chart(var.name_in(lang), rows)
 
@@ -232,6 +235,28 @@ def _bar_chart(title: str, rows: list[tuple[str, int, int]]) -> None:
     st.altair_chart(chart, width="stretch")
     if len(rows) > len(shown):
         st.caption(f"Top {len(shown)} of {len(rows)} values with differences.")
+
+
+def _time_chart(title: str, rows: list[tuple[str, int, int]]) -> None:
+    """Differing cells per period, every compared period in time order."""
+    df = pd.DataFrame(rows, columns=["Period", "Differing cells", "Cells per period"])
+    df["Share"] = df["Differing cells"] / df["Cells per period"].where(df["Cells per period"] > 0)
+    df["_hit"] = max(1, int(df["Differing cells"].max()))
+    periods = list(df["Period"])
+    x = alt.X("Period:N", sort=periods, title=None,
+              axis=alt.Axis(labelAngle=-90, labelOverlap=len(periods) > 80, labelLimit=100))
+    tooltip = ["Period", "Differing cells", "Cells per period", alt.Tooltip("Share:Q", format=".1%")]
+    base = alt.Chart(df, title=alt.Title(title, anchor="start", fontSize=14))
+    # Full-height transparent bars so periods without differences can be hovered too.
+    hit = base.mark_bar(color="transparent").encode(x=x, y=alt.Y("_hit:Q"), tooltip=tooltip)
+    bars = base.mark_bar(color=BAR, cornerRadiusEnd=4).encode(
+        x=x,
+        y=alt.Y("Differing cells:Q", title="Differing cells", axis=alt.Axis(tickMinStep=1, format="d")),
+        tooltip=tooltip,
+    )
+    st.altair_chart((hit + bars).properties(height=220), width="stretch")
+    with_diff = int((df["Differing cells"] > 0).sum())
+    st.caption(f"{with_diff} of {len(df)} compared periods have differences.")
 
 
 def _heatmap(grid: pd.DataFrame, row_name: str, col_name: str) -> None:

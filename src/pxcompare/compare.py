@@ -193,8 +193,8 @@ class DataDiff:
     max_rel: float = 0.0
     variables: list[Variable] = field(default_factory=list)
     """Baseline variables, in baseline axis order; idx columns refer to these."""
-    common_counts: list[int] = field(default_factory=list)
-    """Number of matched values per variable (to say "12 of 27 cells")."""
+    common_values: list[list[int]] = field(default_factory=list)
+    """Per variable, the baseline indices of the values both files have (the compared values)."""
     idx: np.ndarray = field(default_factory=lambda: np.empty((0, 0), dtype=np.int64))
     """(n_diff, n_variables) baseline value indices of each differing cell."""
     baseline_numbers: np.ndarray = field(default_factory=lambda: np.empty(0))
@@ -220,16 +220,27 @@ class DataDiff:
         columns["Difference %"] = rel
         return pd.DataFrame(columns)
 
-    def breakdown(self, lang: str | None = None) -> list[tuple[Variable, list[tuple[str, int, int]]]]:
-        """Per variable: (value label, differing cells, cells compared) for values with differences."""
+    def breakdown(
+        self, lang: str | None = None, all_values: bool = False
+    ) -> list[tuple[Variable, list[tuple[str, int, int]]]]:
+        """Per variable: (value label, differing cells, cells compared per value).
+
+        Time variables are listed chronologically, other variables by number of
+        differing cells. By default only values with differences are listed;
+        all_values=True lists every compared value.
+        """
         out = []
         for k, var in enumerate(self.variables):
             labels = var.values_in(lang)
             counts = np.bincount(self.idx[:, k], minlength=len(labels)) if self.n_diff else np.zeros(len(labels), int)
-            per_value = self.n_common // self.common_counts[k] if self.common_counts[k] else 0
-            rows = [(labels[i], int(c), per_value) for i, c in enumerate(counts) if c]
-            rows.sort(key=lambda r: -r[1])
-            out.append((var, rows))
+            common = self.common_values[k]
+            per_value = self.n_common // len(common) if common else 0
+            indices = list(common) if all_values else [i for i in common if counts[i]]
+            if var.is_time:
+                indices.sort(key=lambda i: _period_key(var, i))
+            else:
+                indices.sort(key=lambda i: -counts[i])
+            out.append((var, [(labels[i], int(counts[i]), per_value) for i in indices]))
         return out
 
     def crosstab(self, row: int, col: int, lang: str | None = None) -> pd.DataFrame:
@@ -604,7 +615,7 @@ def _compare_data(
         max_abs=float(abs_d.max()) if abs_d.size else 0.0,
         max_rel=float(rel_d.max()) if rel_d.size else 0.0,
         variables=list(a.variables),
-        common_counts=[len(v.pairs) for v in values],
+        common_values=[[i for i, _ in v.pairs] for v in values],
         idx=idx.astype(np.int64),
         baseline_numbers=a_num[diff_mask],
         candidate_numbers=b_num[diff_mask],
@@ -719,6 +730,13 @@ def _hints(variables: VariablesDiff, values: list[ValuesDiff], data: DataDiff) -
 
 
 # -------------------------------------------------------------------- formatting
+
+
+def _period_key(var: Variable, i: int) -> str:
+    """Sort key putting periods in time order (TIMEVAL notation when available)."""
+    if var.timeval and len(var.timeval.periods) == len(var.values):
+        return var.timeval.periods[i]
+    return var.values[i]
 
 
 def _n(count: int, noun: str) -> str:

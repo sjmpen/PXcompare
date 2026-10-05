@@ -194,3 +194,29 @@ def test_crosstab_counts(swap):
     rows, cols = (2, 3) if swap else (3, 2)
     table = r.data.crosstab(rows, cols)
     assert table.values.sum() == r.data.n_diff
+
+
+def test_time_breakdown_is_chronological_and_can_list_every_period():
+    def cell(codes):
+        if codes["Tiedot"] == "vaki" and codes["Vuosi"] == "2023":
+            return "1"
+        if codes == {"Alue": "SSS", "Sukupuoli": "SSS", "Vuosi": "2021", "Tiedot": "vaki"}:
+            return "1"
+        return default_cell(codes)
+
+    # Baseline lists the years newest first; the breakdown must still run oldest to newest.
+    base = Spec()
+    years = ["2023", "2022", "2021", "2020"]
+    newest_first = Spec(
+        values=dict(base.values, Vuosi=years), codes=dict(base.codes, Vuosi=years),
+        translations={lang: dict(t, Vuosi=(t["Vuosi"][0], years)) for lang, t in base.translations.items()},
+        timeval='TLIST(A1),"2023","2022","2021","2020"',
+    )
+    r = run(newest_first, Spec(cell=cell))
+    vuosi = dict((v.name, rows) for v, rows in r.data.breakdown())["Vuosi"]
+    assert vuosi == [("2021", 1, 18), ("2023", 9, 18)]
+    vuosi_all = dict((v.name, rows) for v, rows in r.data.breakdown(all_values=True))["Vuosi"]
+    assert vuosi_all == [("2020", 0, 18), ("2021", 1, 18), ("2022", 0, 18), ("2023", 9, 18)]
+    # Non-time variables stay sorted by number of differing cells.
+    tiedot = dict((v.name, rows) for v, rows in r.data.breakdown(all_values=True))["Tiedot"]
+    assert [label for label, _, _ in tiedot] == ["Väkiluku", "Osuus (%)"]

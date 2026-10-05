@@ -48,8 +48,8 @@ It opens in your browser, runs only on `localhost`, and sends no usage statistic
 
 - **Folder view**: one row per table with ✅/❌ per check, then details for the selected table.
 - **Verdict and checklist**: what differs, in one line per check.
-- **Data tab**: number of differing cells, *where* they are (per variable and as a heatmap by
-  two variables), and a filterable table of every differing cell with both values and the
+- **Data tab**: number of differing cells, *where* they are (a time-ordered chart of every
+  period first, then per variable, and a heatmap by two variables), and a filterable table of every differing cell with both values and the
   difference. Labels can be shown in any of the file's languages. CSV download.
 - **Time periods, Variables & values, Metadata** tabs: side-by-side details.
 - **Raw text** tab: plain text diff of the metadata part, for when you want to see the file itself.
