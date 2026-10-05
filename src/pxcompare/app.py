@@ -258,9 +258,9 @@ def _heatmap(grid: pd.DataFrame, row_name: str, col_name: str) -> None:
             tooltip=[alt.Tooltip("row:N", title=row_name), alt.Tooltip("col:N", title=col_name),
                      alt.Tooltip("n:Q", title="Differing cells")],
         )
-        .properties(height=alt.Step(24), width=alt.Step(max(16, min(60, 900 // max(1, len(cols))))))
+        .properties(height=alt.Step(24))
     )
-    st.altair_chart(chart, width="content")
+    st.altair_chart(chart, width="stretch")
     st.caption("Empty squares have no differences." + note)
 
 
